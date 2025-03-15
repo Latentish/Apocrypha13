@@ -22,7 +22,11 @@
 	my_contact_is_important = TRUE
 	known_contacts = list(
 		"Prince",
-		"Dealer"
+		"Sheriff",
+		"Dealer",
+		"Bouncer",
+		"Emissary",
+		"Sweeper"
 	)
 
 	v_duty = "You lead the Anarchs in the City. A Camarilla faction that values freedom and individuality. While not a fan of the traditions, you still respect the Masquerade."
@@ -35,7 +39,7 @@
 	name = "Baron"
 	jobtype = /datum/job/vamp/barkeeper
 
-	id = /obj/item/card/id/anarch
+	id = /obj/item/card/id/baron
 	glasses = /obj/item/clothing/glasses/vampire/sun
 	uniform = /obj/item/clothing/under/vampire/bar
 	suit = /obj/item/clothing/suit/vampire/jacket/better

@@ -301,11 +301,9 @@
 	. = ..()
 	if(allowed_to_proceed)
 		var/mob/living/carbon/C = owner
-		C.obfuscate_level = 3
 		C.alpha = 36
 		playsound(get_turf(owner), 'code/modules/wod13/sounds/milky_blur.ogg', 75, FALSE)
-		spawn(200)
-			C.obfuscate_level = 0
+		spawn(20 SECONDS)
 			C.alpha = 255
 
 /datum/action/gift/open_seal
@@ -343,7 +341,7 @@
 		C.emote("laugh")
 		C.Stun(10)
 		playsound(get_turf(owner), 'code/modules/wod13/sounds/infectious_laughter.ogg', 100, FALSE)
-		for(var/mob/living/L in oviewers(4, src))
+		for(var/mob/living/L in oviewers(4, owner))
 			if(L)
 				L.emote("laugh")
 				L.Stun(20)
@@ -448,7 +446,7 @@
 			H.remove_overlay(PROTEAN_LAYER)
 			G.punchdamagelow -= 15
 			G.punchdamagehigh -= 15
-			H.physique = initial(H.physique)
+			H.physique = H.physique-2
 			H.physiology.armor.melee -= 15
 			H.physiology.armor.bullet -= 15
 			var/matrix/M = matrix()

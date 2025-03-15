@@ -371,7 +371,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 			if(reason_of_death != "None")
 				dat += "<center><b>Last death</b>: [reason_of_death]</center>"
 
-			dat += "<center><h2>[make_font_cool("OCCUPATION CHOISES")]</h2>"
+			dat += "<center><h2>[make_font_cool("OCCUPATION CHOICES")]</h2>"
 			dat += "<a href='?_src_=prefs;preference=job;task=menu'>Set Occupation Preferences</a><br></center>"
 			if(CONFIG_GET(flag/roundstart_traits))
 				dat += "<center><h2>[make_font_cool("QUIRK SETUP")]</h2>"
@@ -464,8 +464,9 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 				var/datum/dharma/D = new dharma_type()
 				dat += "<b>Dharma:</b> [D.name] [dharma_level]/6 <a href='?_src_=prefs;preference=dharmatype;task=input'>Switch</a><BR>"
 				dat += "[D.desc]<BR>"
-				if(true_experience >= 20 && (dharma_level < 6))
-					dat += " <a href='?_src_=prefs;preference=dharmarise;task=input'>Learn (20)</a><BR>"
+				if(true_experience >= min((dharma_level * 5), 20) && (dharma_level < 6))
+					var/dharma_cost = min((dharma_level * 5), 20)
+					dat += " <a href='?_src_=prefs;preference=dharmarise;task=input'>Learn ([dharma_cost])</a><BR>"
 				dat += "<b>P'o Personality</b>: [po_type] <a href='?_src_=prefs;preference=potype;task=input'>Switch</a><BR>"
 				dat += "<b>Awareness:</b> [masquerade]/5<BR>"
 				dat += "<b>Yin/Yang</b>: [yin]/[yang] <a href='?_src_=prefs;preference=chibalance;task=input'>Adjust</a><BR>"
@@ -632,10 +633,10 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					qdel(discipline)
 
 				if (clane.name == "Caitiff")
-					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
+					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
 					for (var/discipline_type in possible_new_disciplines)
 						var/datum/discipline/discipline = new discipline_type
-						if (discipline.clane_restricted)
+						if (discipline.clan_restricted)
 							possible_new_disciplines -= discipline_type
 						qdel(discipline)
 					if (possible_new_disciplines.len && (true_experience >= 10))
@@ -649,7 +650,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					dat += "-[discipline.desc]<BR>"
 					qdel(discipline)
 
-				var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
+				var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
 				if (possible_new_disciplines.len && (true_experience >= 10))
 					dat += "<a href='?_src_=prefs;preference=newghouldiscipline;task=input'>Learn a new Discipline (10)</a><BR>"
 
@@ -1019,6 +1020,8 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 			dat += "<b>Runechat message char limit:</b> <a href='?_src_=prefs;preference=max_chat_length;task=input'>[max_chat_length]</a><br>"
 			dat += "<b>See Runechat for non-mobs:</b> <a href='?_src_=prefs;preference=see_chat_non_mob'>[see_chat_non_mob ? "Enabled" : "Disabled"]</a><br>"
 			dat += "<b>See Runechat emotes:</b> <a href='?_src_=prefs;preference=see_rc_emotes'>[see_rc_emotes ? "Enabled" : "Disabled"]</a><br>"
+			dat += "<br>"
+			dat += "<b>Show Roll Results:</b> <a href='?_src_=prefs;preference=roll_mode'>[(chat_toggles & CHAT_ROLL_INFO) ? "All Rolls" : "Frenzy Only"]</a><br>"
 			dat += "<br>"
 			dat += "<b>Action Buttons:</b> <a href='?_src_=prefs;preference=action_buttons'>[(buttons_locked) ? "Locked In Place" : "Unlocked"]</a><br>"
 			dat += "<b>Hotkey mode:</b> <a href='?_src_=prefs;preference=hotkeys'>[(hotkeys) ? "Hotkeys" : "Default"]</a><br>"
@@ -1576,8 +1579,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 
 /datum/preferences/proc/GetQuirkBalance()
 	var/bal = 0
-	if(pref_species.name == "Human")
-		bal = 3
+	bal = 3
 	for(var/V in all_quirks)
 		var/datum/quirk/T = SSquirks.quirks[V]
 		bal -= initial(T.value)
@@ -1984,10 +1986,10 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if((true_experience < 10) || !(pref_species.id == "kindred") || !(clane.name == "Caitiff"))
 						return
 
-					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
+					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
 					for (var/discipline_type in possible_new_disciplines)
 						var/datum/discipline/discipline = new discipline_type
-						if (discipline.clane_restricted)
+						if (discipline.clan_restricted)
 							possible_new_disciplines -= discipline_type
 						qdel(discipline)
 					var/new_discipline = input(user, "Select your new Discipline", "Discipline Selection") as null|anything in possible_new_disciplines
@@ -2000,7 +2002,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if((true_experience < 10) || !(pref_species.id == "ghoul"))
 						return
 
-					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
+					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
 					var/new_discipline = input(user, "Select your new Discipline", "Discipline Selection") as null|anything in possible_new_disciplines
 					if(new_discipline)
 						discipline_types += new_discipline
@@ -2146,10 +2148,10 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 							for (var/i = clane.clane_disciplines.len; i < 3; i++)
 								if (slotlocked)
 									break
-								var/list/possible_new_disciplines = subtypesof(/datum/discipline) - clane.clane_disciplines
+								var/list/possible_new_disciplines = subtypesof(/datum/discipline) - clane.clane_disciplines - /datum/discipline/bloodheal
 								for (var/discipline_type in possible_new_disciplines)
 									var/datum/discipline/discipline = new discipline_type
-									if (discipline.clane_restricted)
+									if (discipline.clan_restricted)
 										possible_new_disciplines -= discipline_type
 									qdel(discipline)
 								var/new_discipline = input(user, "Select a Discipline", "Discipline Selection") as null|anything in possible_new_disciplines
@@ -2291,10 +2293,10 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					enlightenment = !enlightenment
 
 				if("dharmarise")
-					if ((true_experience < 20) || (dharma_level >= 6) || !(pref_species.id == "kuei-jin"))
+					if ((true_experience < min((dharma_level * 5), 20)) || (dharma_level >= 6) || !(pref_species.id == "kuei-jin"))
 						return
 
-					true_experience -= 20
+					true_experience -= min((dharma_level * 5), 20)
 					dharma_level = clamp(dharma_level + 1, 1, 6)
 
 					if (dharma_level >= 6)
@@ -2377,7 +2379,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						lover_text = trim(copytext_char(sanitize(new_text), 1, 512))
 
 				if("flavor_text")
-					var/new_flavor = input(user, "Choose your character's flavor text:", "Character Preference")  as text|null
+					var/new_flavor = input(user, "Choose your character's flavor text:", "Character Preference") as text|null
 					if(new_flavor)
 						flavor_text = trim(copytext_char(sanitize(new_flavor), 1, 512))
 
@@ -2875,6 +2877,9 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 				if("ghost_laws")
 					chat_toggles ^= CHAT_GHOSTLAWS
 
+				if("roll_mode")
+					chat_toggles ^= CHAT_ROLL_INFO
+
 				if("hear_login_logout")
 					chat_toggles ^= CHAT_LOGIN_LOGOUT
 
@@ -3084,7 +3089,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 		var/dharma_bonus = 0
 		if(pref_species.name == "Kuei-Jin")
 			dharma_bonus = dharma_level
-		character.maxHealth = round((initial(character.maxHealth)-initial(character.maxHealth)/4)+(initial(character.maxHealth)/4)*((character.physique+character.additional_physique )+13-generation+dharma_bonus))
+		character.maxHealth = round((initial(character.maxHealth)-initial(character.maxHealth)/4)+(initial(character.maxHealth)/4)*((character.physique+character.additional_physique)+dharma_bonus))
 		character.health = character.maxHealth
 	if(pref_species.name == "Vampire")
 		character.humanity = humanity
@@ -3218,8 +3223,6 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 		character.update_hair()
 		character.update_body_parts()
 	if(!character_setup)
-//		if(pref_species.name == "Werewolf")
-//			character.transformator.fast_trans_gender(character, character.base_breed)
 		character.roundstart_vampire = TRUE
 		if(character.age < 16)
 			if(!character.ischildren)
