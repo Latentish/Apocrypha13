@@ -20,7 +20,7 @@
 	display_order = JOB_DISPLAY_ORDER_REGENT
 	v_duty = "Lead the Chantry. You serve as both the Regent and Tremere Primogen. You report to the Tremere Lord of this region first, Prince second."
 	minimal_masquerade = 4
-	minimal_generation = 7
+	minimal_generation = 10
 	allowed_species = list("Vampire")
 	allowed_bloodlines = list("Tremere")
 	experience_addition = 20
@@ -31,15 +31,23 @@
 	jobtype = /datum/job/vamp/regent
 
 	id = /obj/item/card/id/regent
-	glasses = /obj/item/clothing/glasses/vampire/perception
-	suit = /obj/item/clothing/suit/vampire/trench/archive
+	glasses = /obj/item/clothing/glasses/vampire/red
+	suit = /obj/item/clothing/suit/vampire/trench/strauss
 	shoes = /obj/item/clothing/shoes/vampire
 	gloves = /obj/item/clothing/gloves/vampire/latex
 	uniform = /obj/item/clothing/under/vampire/archivist
 	r_pocket = /obj/item/vamp/keys/regent
 	l_pocket = /obj/item/vamp/phone/tremere
 	accessory = /obj/item/clothing/accessory/pocketprotector/full
-	backpack_contents = list(/obj/item/passport=1, /obj/item/phone_book=1, /obj/item/cockclock=1, /obj/item/flashlight=1, /obj/item/arcane_tome=1, /obj/item/vamp/creditcard/elder=1, /obj/item/melee/vampirearms/katana/kosa=1)
+	backpack_contents = list(
+		/obj/item/passport=1,
+		/obj/item/phone_book=1,
+		/obj/item/cockclock=1,
+		/obj/item/flashlight=1,
+		/obj/item/arcane_tome=1,
+		/obj/item/vamp/creditcard/elder=1,
+		/obj/item/melee/vampirearms/katana/kosa=1,
+	)
 
 /datum/outfit/job/regent/pre_equip(mob/living/carbon/human/H)
 	..()

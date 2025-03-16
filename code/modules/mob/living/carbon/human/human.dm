@@ -556,7 +556,24 @@
 				R.fields[text("com_[]", counter)] = text("Made by [] on [] [], []<BR>[]", allowed_access, station_time_timestamp(), time2text(world.realtime, "MMM DD"), GLOB.year_integer+540, t1)
 				to_chat(usr, "<span class='notice'>Successfully added comment.</span>")
 				return
+	// TFN EDIT ADDITION START: view character headshot & big flavortext via examine
+	if(href_list["view_headshot"])
+		if(!ismob(usr))
+			return
+		if(!valid_headshot_link(null, headshot_link, TRUE))
+			return
+		var/list/dat = list("<table width='100%' height='100%'><td align='center' valign='middle'><img src='[headshot_link]' width='250px' height='250px'></td></table>")
+		var/datum/browser/popup = new(user, "[name]'s Headshot", "<div align='center'>[name]</div>", 310, 330)
+		popup.set_content(dat.Join())
+		popup.open(FALSE)
+		return
 
+	if(href_list["view_flavortext"])
+		var/datum/browser/popup = new(user, "[name]'s Description", name, 500, 200)
+		popup.set_content(text("<HTML><HEAD><TITLE>[]</TITLE></HEAD><BODY><TT>[]</TT></BODY></HTML>", "[name]", replacetext(flavor_text, "\n", "<BR>")))
+		popup.open(FALSE)
+		return
+	// TFN EDIT ADDITION END
 	..() //end of this massive fucking chain. TODO: make the hud chain not spooky. - Yeah, great job doing that.
 
 
@@ -1321,27 +1338,6 @@
 	equip_to_slot_or_del(new /obj/item/clothing/head/vampire/napoleon(src), ITEM_SLOT_HEAD)
 	equip_to_slot_or_del(new /obj/item/clothing/shoes/vampire/jackboots/high(src), ITEM_SLOT_FEET)
 	equip_to_slot_or_del(new /obj/item/clothing/under/vampire/napoleon(src), ITEM_SLOT_ICLOTHING)
-
-/mob/living/carbon/human/species/vamp_mannequin/nazi
-
-/mob/living/carbon/human/species/vamp_mannequin/nazi/Initialize()
-	. = ..()
-	equip_to_slot_or_del(new /obj/item/clothing/head/vampire/nazi(src), ITEM_SLOT_HEAD)
-	equip_to_slot_or_del(new /obj/item/clothing/shoes/vampire/jackboots/high(src), ITEM_SLOT_FEET)
-	equip_to_slot_or_del(new /obj/item/clothing/under/vampire/nazi(src), ITEM_SLOT_ICLOTHING)
-
-//prevents this thing from being stripped
-/mob/living/carbon/human/species/vamp_mannequin/nazi/Topic(href, href_list)
-	if(href_list["item"])
-		message_admins("[ADMIN_LOOKUPFLW(usr)] tried to strip the Nazi mannequin.")
-		to_chat(usr, "<span class='warning'>You don't really want to pick that up...</span>")
-		return
-	else
-		..()
-
-//prevents anything from being dropped by the mannequin on gib
-/mob/living/carbon/human/species/vamp_mannequin/nazi/gib(no_brain, no_organs, no_bodyparts, safe_gib)
-	qdel(src)
 
 /mob/living/carbon/human/species/vamp_mannequin/conquestador
 
