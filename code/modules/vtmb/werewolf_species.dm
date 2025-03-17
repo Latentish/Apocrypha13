@@ -62,11 +62,13 @@
 				if(A.objectives)
 					dat += "[printobjectives(A.objectives)]<BR>"
 
-		dat += "<b>Physique</b>: [host.physique]<BR>"
-		dat += "<b>Dexterity</b>: [host.dexterity]<BR>"
-		dat += "<b>Social</b>: [host.social]<BR>"
-		dat += "<b>Mentality</b>: [host.mentality]<BR>"
-		dat += "<b>Cruelty</b>: [host.blood]<BR>"
+		dat += "<b>Physique</b>: [host.physique] + [host.additional_physique]<BR>"
+		dat += "<b>Dexterity</b>: [host.dexterity] + [host.additional_dexterity]<BR>"
+		dat += "<b>Social</b>: [host.social] + [host.additional_social]<BR>"
+		dat += "<b>Mentality</b>: [host.mentality] + [host.additional_mentality]<BR>"
+		dat += "<b>Cruelty</b>: [host.blood] + [host.additional_blood]<BR>"
+		dat += "<b>Lockpicking</b>: [host.lockpicking] + [host.additional_lockpicking]<BR>"
+		dat += "<b>Athletics</b>: [host.athletics] + [host.additional_athletics]<BR>"
 		if(host.Myself)
 			if(host.Myself.Friend)
 				if(host.Myself.Friend.owner)
@@ -91,6 +93,11 @@
 			dat += "<b>I know some other of my kind in this city. Need to check my phone, there definetely should be:</b><BR>"
 			for(var/i in host.knowscontacts)
 				dat += "-[i] contact<BR>"
+		if(istype(host, /mob/living/carbon/human))
+			var/mob/living/carbon/human/H = host
+			for(var/datum/vtm_bank_account/account in GLOB.bank_account_list)
+				if(H.bank_id == account.bank_id)
+					dat += "<b>My bank account code is: [account.code]</b><BR>"
 		host << browse(dat, "window=vampire;size=400x450;border=1;can_resize=1;can_minimize=0")
 		onclose(host, "vampire", src)
 
@@ -109,8 +116,16 @@
 	C.transformator = new(C)
 	C.transformator.human_form = C
 
+	//garou resist vampire bites better than mortals
+	RegisterSignal(C, COMSIG_MOB_VAMPIRE_SUCKED, PROC_REF(on_garou_bitten))
+	RegisterSignal(C.transformator.lupus_form, COMSIG_MOB_VAMPIRE_SUCKED, PROC_REF(on_garou_bitten))
+	RegisterSignal(C.transformator.crinos_form, COMSIG_MOB_VAMPIRE_SUCKED, PROC_REF(on_garou_bitten))
+
 /datum/species/garou/on_species_loss(mob/living/carbon/human/C, datum/species/new_species, pref_load)
 	. = ..()
+	UnregisterSignal(C, COMSIG_MOB_VAMPIRE_SUCKED)
+	UnregisterSignal(C.transformator.lupus_form, COMSIG_MOB_VAMPIRE_SUCKED)
+	UnregisterSignal(C.transformator.crinos_form, COMSIG_MOB_VAMPIRE_SUCKED)
 	for(var/datum/action/garouinfo/VI in C.actions)
 		if(VI)
 			VI.Remove(C)
@@ -136,19 +151,6 @@
 			to_chat(C, "<span class='userdanger'><b>RAGE DECREASES</b></span>")
 	C.update_rage_hud()
 
-	if(amount && sound)
-		if(prob(20))
-			C.emote("growl")
-			if(iscrinos(C))
-				playsound(get_turf(C), 'code/modules/wod13/sounds/crinos_growl.ogg', 75, FALSE)
-			if(islupus(C))
-				playsound(get_turf(C), 'code/modules/wod13/sounds/lupus_growl.ogg', 75, FALSE)
-			if(isgarou(C))
-				if(C.gender == FEMALE)
-					playsound(get_turf(C), 'code/modules/wod13/sounds/female_growl.ogg', 75, FALSE)
-				else
-					playsound(get_turf(C), 'code/modules/wod13/sounds/male_growl.ogg', 75, FALSE)
-
 /proc/adjust_gnosis(var/amount, var/mob/living/carbon/C, var/sound = TRUE)
 	if(amount > 0)
 		if(C.auspice.gnosis < C.auspice.start_gnosis)
@@ -163,3 +165,14 @@
 				SEND_SOUND(C, sound('code/modules/wod13/sounds/rage_decrease.ogg', 0, 0, 75))
 			to_chat(C, "<span class='boldnotice'><b>GNOSIS DECREASES</b></span>")
 	C.update_rage_hud()
+
+/**
+ * On being bit by a vampire
+ *
+ * This handles vampire bite sleep immunity and any future special interactions.
+ */
+/datum/species/garou/proc/on_garou_bitten(datum/source, mob/living/carbon/being_bitten)
+	SIGNAL_HANDLER
+
+	if(isgarou(being_bitten) || iswerewolf(being_bitten))
+		return COMPONENT_RESIST_VAMPIRE_KISS

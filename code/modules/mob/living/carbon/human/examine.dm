@@ -13,43 +13,42 @@
 		var/mob/living/L = user
 		if(HAS_TRAIT(L, TRAIT_PROSOPAGNOSIA))
 			obscure_name = TRUE
+	// TFN EDIT REFACTOR START: gender expansion
+	var/body_shape = "average"
+	var/gender_title = ""
 
-		if(HAS_TRAIT(src, TRAIT_CHARMER))
-			if(gender == L.gender)
-				if(HAS_TRAIT(L, TRAIT_HOMOSEXUAL))
-					L.face_atom(src)
-					L.emote("blush")
-			else
-				if(!HAS_TRAIT(L, TRAIT_HOMOSEXUAL))
-					L.face_atom(src)
-					L.emote("blush")
+	switch(gender)
+		if(MALE)
+			gender_title = "male"
+			switch(age)
+				if(1 to 16)
+					gender_title = "boy"
+				if(16 to 24)
+					gender_title = "guy"
+				if(24 to INFINITY)
+					gender_title = "man"
+		if(FEMALE)
+			gender_title = "female"
+			switch(age)
+				if(1 to 16)
+					gender_title = "girl"
+				if(16 to 24)
+					gender_title = "lady"
+				if(24 to INFINITY)
+					gender_title = "woman"
+		if(PLURAL)
+			gender_title = "person"
+		else
+			gender_title = "person"
 
-	var/my_shape = "average"
-	var/my_gender = "male"
-	if(gender == MALE)
-		switch(age)
-			if(1 to 16)
-				my_gender = "boy"
-			if(16 to 24)
-				my_gender = "guy"
-			if(24 to INFINITY)
-				my_gender = "man"
-	if(gender == FEMALE)
-		my_gender = "female"
-		switch(age)
-			if(1 to 16)
-				my_gender = "girl"
-			if(16 to 24)
-				my_gender = "lady"
-			if(24 to INFINITY)
-				my_gender = "woman"
-	if(my_shape == "s")
-		my_shape = "slim"
-	if(my_shape == "f")
-		my_shape = "fat"
+	switch(body_shape)
+		if("s")
+			body_shape = "slim"
+		if("f")
+			body_shape = "fat"
 
-	. = list("<span class='info'>*---------*\nThis is <EM>[!obscure_name ? name : "Unknown"]</EM>, [age2agedescription(age)] [my_shape] [my_gender]!")
-
+	. = list("<span class='info'>*---------*\nThis is <EM>[!obscure_name ? name : "Unknown"]</EM>, [age2agedescription(age)] [body_shape] [gender_title]!")
+	// TFN EDIT REFACTOR END
 	var/obscured = check_obscured_slots()
 	var/skipface = (wear_mask && (wear_mask.flags_inv & HIDEFACE)) || (head && (head.flags_inv & HIDEFACE))
 
@@ -287,6 +286,12 @@
 	var/apparent_blood_volume = bloodpool
 	if(skin_tone == "albino")
 		apparent_blood_volume -= 3
+	if(HAS_TRAIT(user, TRAIT_COLD_AURA))
+		apparent_blood_volume -= 1
+	if(HAS_TRAIT(user, TRAIT_WARM_AURA))
+		apparent_blood_volume += 1
+	if(HAS_TRAIT(user, TRAIT_BLUSH_OF_HEALTH))
+		apparent_blood_volume += 5
 	if((apparent_blood_volume >= round(maxbloodpool * 0.5)) && (apparent_blood_volume < maxbloodpool))
 		msg += "[t_He] [t_has] pale skin.\n"
 	else if((apparent_blood_volume >= 1) && (apparent_blood_volume < round(maxbloodpool/2)))
@@ -505,10 +510,16 @@
 
 	if(ishuman(user))
 		. += "<a href='?src=[REF(src)];masquerade=1'>Spot a Masquerade violation</a>"
+	// TFN EDIT ADDITION START: view headshot & big flavortext via examine
+	if(!obscure_name && headshot_link)
+		. += "<a href='?src=[REF(src)];view_headshot=1'>View face closely</a>"
 
 	if(flavor_text)
-		. += "[sanitize_text(flavor_text)]\n"
-
+		if(length(flavor_text) < 110)
+			. += span_notice("[sanitize_text(flavor_text)]\n")
+		else
+			. += span_notice("[copytext(sanitize_text(flavor_text), 1, 110)]... <a href='?src=[REF(src)];view_flavortext=1'>More...</a>")
+	// TFN EDIT ADDITION END
 	var/perpname = get_face_name(get_id_name(""))
 	if(perpname && (HAS_TRAIT(user, TRAIT_SECURITY_HUD) || HAS_TRAIT(user, TRAIT_MEDICAL_HUD)))
 		var/datum/data/record/R = find_record("name", perpname, GLOB.data_core.general)

@@ -1,5 +1,5 @@
 /datum/vampireclane/ventrue
-	name = "Ventrue"
+	name = CLAN_VENTRUE
 	desc = "The Ventrue are not called the Clan of Kings for nothing. Carefully choosing their progeny from mortals familiar with power, wealth, and influence, the Ventrue style themselves the aristocrats of the vampire world. Their members are expected to assume command wherever possible, and they’re willing to endure storms for the sake of leading from the front."
 	curse = "Low-rank and animal blood is disgusting."
 	clane_disciplines = list(
@@ -10,11 +10,6 @@
 	male_clothes = /obj/item/clothing/under/vampire/ventrue
 	female_clothes = /obj/item/clothing/under/vampire/ventrue/female
 	clan_keys = /obj/item/vamp/keys/ventrue
-
-/datum/discipline/dominate/post_gain(mob/living/carbon/human/H)
-	if(level >= 1)
-		var/obj/effect/proc_holder/spell/voice_of_god/S = new(H)
-		H.mind.AddSpell(S)
 
 /datum/action/dominate
 	name = "Dominate"

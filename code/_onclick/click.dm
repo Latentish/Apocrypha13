@@ -99,6 +99,7 @@
 	var/turf/T = get_step(src, dir)
 	var/turf/T1 = get_step(T, turn(dir, -90))
 	var/turf/T2 = get_step(T, turn(dir, 90))
+	SEND_SIGNAL(src, COMSIG_MOB_MELEE_SWING, M, T, T1, T2)
 	for(var/mob/living/MB in T)
 		if(MB)
 			M = MB
@@ -287,7 +288,8 @@
 		else
 			if(istype(W, /obj/item/melee))
 				var/atom/B = melee_swing()
-				W.melee_attack_chain(src, B, params)
+				if(B)
+					W.melee_attack_chain(src, B, params)
 			else if(CanReach(A,W))
 				W.melee_attack_chain(src, A, params)
 

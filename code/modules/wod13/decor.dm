@@ -763,7 +763,10 @@
 				return
 			V.last_extracted = world.time
 			if(!iskindred(src))
-				new /obj/item/drinkable_bloodpack(get_step(V, SOUTH))
+				if(HAS_TRAIT(src,TRAIT_POTENT_BLOOD))
+					new /obj/item/drinkable_bloodpack/elite(get_step(V, SOUTH))
+				else
+					new /obj/item/drinkable_bloodpack(get_step(V, SOUTH))
 				bloodpool = max(0, bloodpool-2)
 			else
 				new /obj/item/drinkable_bloodpack/vitae(get_step(V, SOUTH))
@@ -987,8 +990,8 @@
 	icon_state = "billiard[rand(1, 3)]"
 
 /obj/police_department
-	name = "San Francisco Police Demartment"
-	desc = "Stop right there you criminal scum! Nobody can break the law in my watch!!"
+	name = "San Francisco Police Department"
+	desc = "Stop right there you criminal scum! Nobody can break the law on my watch!!"
 	icon = 'code/modules/wod13/props.dmi'
 	icon_state = "police"
 	plane = GAME_PLANE
@@ -1552,6 +1555,9 @@
 						user.visible_message("<span class='warning'>[user] digs a hole in [src].</span>", "<span class='warning'>You dig a hole in [src].</span>")
 						if(dead_amongst)
 							call_dharma("respect", user)
+					if(!dead_amongst)
+						user.visible_message("<span class='warning'>[user] refills [src].</span>", "<span class='warning'>You refill [src].</span>")
+						qdel(src)
 				else
 					var/dead_amongst = FALSE
 					for(var/mob/living/L in src)
