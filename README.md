@@ -1,13 +1,12 @@
 
 * **Website:** TO_BE_DECLARED
-* **Code:** https://github.com/WorldOfDarknessXIII/World-of-Darkness-13
+* **Code:** [You Are Here.](https://github.com/ApocryphaXIII/Apocrypha13)
 * **Wiki:** UNDER_CONSTRUCTION
 * **Codedocs:** https://codedocs.tgstation13.org/ + For the time being +
-* **World of Darkness 13 Discord:** https://discord.gg/WBktth6Z8j
+* **Apocrypha 13 Discord:** https://discord.gg/cq3gqaCTFG
 * **Coderbus Discord:** https://discord.gg/Vh8TJp9
-* ~~**IRC:** irc://irc.rizon.net/coderbus~~ (dead)
 
-This is the codebase for the World of Darkness 13, a build of a fork of a downstream of a-- in any case...
+This is the codebase for Apocrypha 13, a build of a fork of a downstream of a branch of a.... honestly, who cares about the story?
 
 We are based on the Paradox Interactive World of Darkness(c) gamelines, with administrative oversight determining what we add to our game. Please see below for our guides on contributing.
 
