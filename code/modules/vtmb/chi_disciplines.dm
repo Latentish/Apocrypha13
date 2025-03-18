@@ -152,7 +152,7 @@
 	if(target.stat == DEAD && dead_restricted)
 		return FALSE
 
-	if(target.resistant_to_disciplines || target.spell_immunity)
+	if(target.resistant_to_disciplines)
 		to_chat(caster, "<span class='danger'>[target] resists your powers!</span>")
 		return FALSE
 
@@ -417,11 +417,9 @@
 		if(3)
 			ADD_TRAIT(caster, TRAIT_PASS_THROUGH_WALLS, "jade shintai 3")
 			caster.alpha = 128
-			caster.obfuscate_level = 3
 			caster.add_movespeed_modifier(/datum/movespeed_modifier/wall_passing)
 			spawn(delay+caster.discipline_time_plus)
 				if(caster)
-					caster.obfuscate_level = 0
 					caster.alpha = 255
 					REMOVE_TRAIT(caster, TRAIT_PASS_THROUGH_WALLS, "jade shintai 3")
 					caster.remove_movespeed_modifier(/datum/movespeed_modifier/wall_passing)
@@ -1198,7 +1196,7 @@
 			target.clear_fullscreen("yomi", 5)
 			if(ishuman(target))
 				var/mob/living/carbon/human/human_target = target
-				var/datum/cb = CALLBACK(human_target, /mob/living/carbon/human/proc/attack_myself_command)
+				var/datum/cb = CALLBACK(human_target, TYPE_PROC_REF(/mob/living/carbon/human, attack_myself_command))
 				for(var/i in 1 to 20)
 					addtimer(cb, (i - 1) * 1.5 SECONDS)
 				target.emote("scream")
@@ -1281,14 +1279,14 @@
 			target.emote("stare")
 			if(ishuman(target))
 				var/mob/living/carbon/human/human_target = target
-				var/datum/cb = CALLBACK(human_target, /mob/living/carbon/human/proc/combat_to_caster)
+				var/datum/cb = CALLBACK(human_target, TYPE_PROC_REF(/mob/living/carbon/human, combat_to_caster))
 				for(var/i in 1 to 20)
 					addtimer(cb, (i - 1) * 1.5 SECONDS)
 		if(3)
 			target.emote("scream")
 			if(ishuman(target))
 				var/mob/living/carbon/human/human_target = target
-				var/datum/cb = CALLBACK(human_target, /mob/living/carbon/human/proc/step_away_caster)
+				var/datum/cb = CALLBACK(human_target, TYPE_PROC_REF(/mob/living/carbon/human, step_away_caster))
 				for(var/i in 1 to 20)
 					addtimer(cb, (i - 1) * 1.5 SECONDS)
 		if(4)
@@ -2159,10 +2157,8 @@
 	switch(level_casting)
 		if(1)
 			animate(caster, alpha = 10, time = 1 SECONDS)
-			caster.obfuscate_level = 3
 			spawn(delay+caster.discipline_time_plus)
 				if(caster)
-					caster.obfuscate_level = 0
 					if(caster.alpha != 255)
 						caster.playsound_local(caster.loc, 'code/modules/wod13/sounds/obfuscate_deactivate.ogg', 50, FALSE)
 						caster.alpha = 255

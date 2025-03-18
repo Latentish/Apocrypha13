@@ -43,6 +43,9 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 	var/list/key_bindings = list()
 
 	var/tgui_fancy = TRUE
+	var/tgui_input_mode = TRUE // All the Input Boxes (Text,Number,List,Alert)
+	var/tgui_large_buttons = TRUE
+	var/tgui_swapped_buttons = FALSE
 	var/tgui_lock = FALSE
 	var/windowflashing = TRUE
 	var/toggles = TOGGLES_DEFAULT
@@ -84,10 +87,12 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 	var/list/features = list("mcolor" = "FFF", "ethcolor" = "9c3030", "tail_lizard" = "Smooth", "tail_human" = "None", "snout" = "Round", "horns" = "None", "ears" = "None", "wings" = "None", "frills" = "None", "spines" = "None", "body_markings" = "None", "legs" = "Normal Legs", "moth_wings" = "Plain", "moth_antennae" = "Plain", "moth_markings" = "None")
 	var/list/randomise = list(RANDOM_UNDERWEAR = TRUE, RANDOM_UNDERWEAR_COLOR = TRUE, RANDOM_UNDERSHIRT = TRUE, RANDOM_SOCKS = TRUE, RANDOM_BACKPACK = TRUE, RANDOM_JUMPSUIT_STYLE = TRUE, RANDOM_HAIRSTYLE = TRUE, RANDOM_HAIR_COLOR = TRUE, RANDOM_FACIAL_HAIRSTYLE = TRUE, RANDOM_FACIAL_HAIR_COLOR = TRUE, RANDOM_SKIN_TONE = TRUE, RANDOM_EYE_COLOR = TRUE)
 	var/phobia = "spiders"
-
+	var/list/genders = list(MALE, FEMALE, PLURAL)
 	var/list/custom_names = list()
 	var/preferred_ai_core_display = "Blue"
 	var/prefered_security_department = SEC_DEPT_RANDOM
+
+	var/list/alt_titles_preferences = list() // TFN EDIT: alt job titles
 
 	//Quirk list
 	var/list/all_quirks = list()
@@ -145,7 +150,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 	var/broadcast_login_logout = TRUE
 
 	//Generation
-	var/generation = 13
+	var/generation = DEFAULT_GENERATION
 	var/generation_bonus = 0
 
 	//Masquerade
@@ -279,13 +284,8 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 	body_model = rand(1, 3)
 	true_experience = 50
 	real_name = random_unique_name(gender)
+	headshot_link = null // TFN EDIT
 	save_character()
-
-/proc/reset_shit(mob/M)
-	if(M.key)
-		var/datum/preferences/P = GLOB.preferences_datums[ckey(M.key)]
-		if(P)
-			P.reset_character()
 
 /datum/preferences/New(client/C)
 	parent = C
@@ -307,7 +307,6 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 	//we couldn't load character data so just randomize the character appearance + name
 	random_species()
 	random_character()		//let's create a random character then - rather than a fat, bald and naked man.
-	reset_shit()
 	key_bindings = deepCopyList(GLOB.hotkey_keybinding_list_by_key) // give them default keybinds and update their movement keys
 	C?.set_macros()
 //	pref_species = new /datum/species/kindred()
@@ -328,6 +327,11 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 		return coolfont
 
 /datum/preferences/proc/ShowChoices(mob/user)
+	if(!SSatoms.initialized)
+		to_chat(user, span_warning("Please wait for the game to do a little more setup first...!"))
+		return
+	if(!user?.client) // Without a client in control, you can't do anything.
+		return
 	if(slot_randomized)
 		load_character(default_slot) // Reloads the character slot. Prevents random features from overwriting the slot if saved.
 		slot_randomized = FALSE
@@ -452,43 +456,44 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 			dat += "<table width='100%'><tr><td width='24%' valign='top'>"
 
 			dat += "<b>Species:</b><BR><a href='?_src_=prefs;preference=species;task=input'>[pref_species.name]</a><BR>"
-			if(pref_species.name == "Vampire")
-				dat += "<b>Path of [enlightenment ? "Enlightenment" : "Humanity"]:</b> [humanity]/10"
-				//if(SSwhitelists.is_whitelisted(parent.ckey, "enlightenment") && !slotlocked)
-				if ((true_experience >= (humanity * 2)) && (humanity < 10))
-					dat += " <a href='?_src_=prefs;preference=path;task=input'>Increase [enlightenment ? "Enlightenment" : "Humanity"] ([humanity * 2])</a>"
-				dat += "<br>"
-				if(!slotlocked)
-					dat += "<a href='?_src_=prefs;preference=pathof;task=input'>Switch Path</a><BR>"
-			if(pref_species.name == "Kuei-Jin")
-				var/datum/dharma/D = new dharma_type()
-				dat += "<b>Dharma:</b> [D.name] [dharma_level]/6 <a href='?_src_=prefs;preference=dharmatype;task=input'>Switch</a><BR>"
-				dat += "[D.desc]<BR>"
-				if(true_experience >= 20 && (dharma_level < 6))
-					dat += " <a href='?_src_=prefs;preference=dharmarise;task=input'>Learn (20)</a><BR>"
-				dat += "<b>P'o Personality</b>: [po_type] <a href='?_src_=prefs;preference=potype;task=input'>Switch</a><BR>"
-				dat += "<b>Awareness:</b> [masquerade]/5<BR>"
-				dat += "<b>Yin/Yang</b>: [yin]/[yang] <a href='?_src_=prefs;preference=chibalance;task=input'>Adjust</a><BR>"
-				dat += "<b>Hun/P'o</b>: [hun]/[po] <a href='?_src_=prefs;preference=demonbalance;task=input'>Adjust</a><BR>"
-			if(pref_species.name == "Werewolf")
-				dat += "<b>Veil:</b> [masquerade]/5<BR>"
-			if(pref_species.name == "Vampire" || pref_species.name == "Ghoul")
-				dat += "<b>Masquerade:</b> [masquerade]/5<BR>"
-			if(pref_species.name == "Vampire")
-				dat += "<b>Generation:</b> [generation]"
-				var/generation_allowed = TRUE
-				if(clane)
-					if(clane.name == "Caitiff")
+			switch(pref_species.name)
+				if("Vampire")
+					dat += "<b>Path of [enlightenment ? "Enlightenment" : "Humanity"]:</b> [humanity]/10"
+					if ((true_experience >= (humanity * 2)) && (humanity < 10))
+						dat += " <a href='?_src_=prefs;preference=path;task=input'>Increase [enlightenment ? "Enlightenment" : "Humanity"] ([humanity * 2])</a>"
+					dat += "<br>"
+					if(!slotlocked)
+						dat += "<a href='?_src_=prefs;preference=pathof;task=input'>Switch Path</a><BR>"
+					dat += "<b>Masquerade:</b> [masquerade]/5<BR>"
+					dat += "<b>Generation:</b> [generation]"
+					var/generation_allowed = TRUE
+					if(clane?.name == CLAN_NONE)
 						generation_allowed = FALSE
-				if(generation_allowed)
-					if(generation_bonus)
-						dat += " (+[generation_bonus]/[min(6, generation-7)])"
-					if(true_experience >= 20 && generation_bonus < max(0, generation-7))
-						dat += " <a href='?_src_=prefs;preference=generation;task=input'>Claim generation bonus (20)</a><BR>"
+					if(generation_allowed)
+						if(generation_bonus)
+							dat += " (+[generation_bonus]/[min(MAX_PUBLIC_GENERATION-1, generation-MAX_PUBLIC_GENERATION)])"
+						if(true_experience >= 20 && generation_bonus < max(0, generation-MAX_PUBLIC_GENERATION))
+							dat += " <a href='?_src_=prefs;preference=generation;task=input'>Claim generation bonus (20)</a><BR>"
+						else
+							dat += "<BR>"
 					else
 						dat += "<BR>"
-				else
-					dat += "<BR>"
+				if("Kuei-Jin")
+					var/datum/dharma/D = new dharma_type()
+					dat += "<b>Dharma:</b> [D.name] [dharma_level]/6 <a href='?_src_=prefs;preference=dharmatype;task=input'>Switch</a><BR>"
+					dat += "[D.desc]<BR>"
+					if(true_experience >= min((dharma_level * 5), 20) && (dharma_level < 6))
+						var/dharma_cost = min((dharma_level * 5), 20)
+						dat += " <a href='?_src_=prefs;preference=dharmarise;task=input'>Raise Dharmic Enlightenment ([dharma_cost])</a><BR>"
+					dat += "<b>P'o Personality</b>: [po_type] <a href='?_src_=prefs;preference=potype;task=input'>Switch</a><BR>"
+					dat += "<b>Awareness:</b> [masquerade]/5<BR>"
+					dat += "<b>Yin/Yang</b>: [yin]/[yang] <a href='?_src_=prefs;preference=chibalance;task=input'>Adjust</a><BR>"
+					dat += "<b>Hun/P'o</b>: [hun]/[po] <a href='?_src_=prefs;preference=demonbalance;task=input'>Adjust</a><BR>"
+				if("Werewolf")
+					dat += "<b>Veil:</b> [masquerade]/5<BR>"
+				if("Ghoul")
+					dat += "<b>Masquerade:</b> [masquerade]/5<BR>"
+
 			dat += "<h2>[make_font_cool("ATTRIBUTES")]</h2>"
 
 			dat += "<b>Archetype</b><BR>"
@@ -545,8 +550,9 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						gifts_text += "[ACT.name].<BR>"
 					qdel(ACT)
 				dat += "<b>Initial Gifts:</b> [gifts_text]"
-				var/mob/living/carbon/werewolf/crinos/DAWOF = new(get_turf(parent.mob))
-				var/mob/living/carbon/werewolf/lupus/DAWOF2 = new(get_turf(parent.mob))
+				// These mobs should be made in nullspace to avoid dumping them onto the map somewhere.
+				var/mob/living/carbon/werewolf/crinos/DAWOF = new
+				var/mob/living/carbon/werewolf/lupus/DAWOF2 = new
 
 				DAWOF.sprite_color = werewolf_color
 				DAWOF2.sprite_color = werewolf_color
@@ -632,10 +638,10 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					qdel(discipline)
 
 				if (clane.name == "Caitiff")
-					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
+					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
 					for (var/discipline_type in possible_new_disciplines)
 						var/datum/discipline/discipline = new discipline_type
-						if (discipline.clane_restricted)
+						if (discipline.clan_restricted)
 							possible_new_disciplines -= discipline_type
 						qdel(discipline)
 					if (possible_new_disciplines.len && (true_experience >= 10))
@@ -649,7 +655,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					dat += "-[discipline.desc]<BR>"
 					qdel(discipline)
 
-				var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
+				var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
 				if (possible_new_disciplines.len && (true_experience >= 10))
 					dat += "<a href='?_src_=prefs;preference=newghouldiscipline;task=input'>Learn a new Discipline (10)</a><BR>"
 
@@ -703,13 +709,19 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 
 			if(true_experience >= 3 && slotlocked)
 				dat += "<a href='?_src_=prefs;preference=change_appearance;task=input'>Change Appearance (3)</a><BR>"
-			if(clane)
-				if(clane.name != "Caitiff")
-					if(generation_bonus)
-						dat += "<a href='?_src_=prefs;preference=reset_with_bonus;task=input'>Create new character with generation bonus ([generation]-[generation_bonus])</a><BR>"
+			if(generation_bonus)
+				dat += "<a href='?_src_=prefs;preference=reset_with_bonus;task=input'>Create new character with generation bonus ([generation]-[generation_bonus])</a><BR>"
+			// TFN EDIT ADDITION START
+			if(length(flavor_text) <= 110)
+				dat += "<BR><b>Flavor Text:</b> [flavor_text] <a href='?_src_=prefs;preference=flavor_text;task=input'>Change</a><BR>"
+			else
+				dat += "<BR><b>Flavor Text:</b> [copytext_char(flavor_text, 1, 110)]... <a href='?_src_=prefs;preference=flavor_text;task=input'>Change</a>"
+				dat += "<a href='?_src_=prefs;preference=view_flavortext;task=input'>Show More</a><BR>"
 
-			dat += "<BR><b>Flavor Text:</b> [flavor_text] <a href='?_src_=prefs;preference=flavor_text;task=input'>Change</a><BR>"
-
+			dat += "<br><b>Headshot(1:1):</b> <a href='?_src_=prefs;preference=headshot;task=input'>Change</a>"
+			if(headshot_link != null)
+				dat += "<a href='?_src_=prefs;preference=view_headshot;task=input'>View</a>"
+			// TFN EDIT ADDITION END
 			dat += "<h2>[make_font_cool("EQUIP")]</h2>"
 
 			dat += "<b>Underwear:</b><BR><a href ='?_src_=prefs;preference=underwear;task=input'>[underwear]</a>"
@@ -1014,6 +1026,9 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 			dat += "<h2>[make_font_cool("GENERAL")]</h2>"
 			dat += "<b>UI Style:</b> <a href='?_src_=prefs;task=input;preference=ui'>[UI_style]</a><br>"
 			dat += "<b>tgui Window Mode:</b> <a href='?_src_=prefs;preference=tgui_fancy'>[(tgui_fancy) ? "Fancy (default)" : "Compatible (slower)"]</a><br>"
+			dat += "<b>Input Framework:</b> <a href='?_src_=prefs;preference=tgui_input_mode'>[(tgui_input_mode) ? "tgui" : "BYOND"]</a><br>"
+			dat += "<b>tgui Button Size:</b> <a href='?_src_=prefs;preference=tgui_large_buttons'>[(tgui_large_buttons) ? "Large" : "Small"]</a><br>"
+			dat += "<b>tgui Buttons Swapped:</b> <a href='?_src_=prefs;preference=tgui_swapped_buttons'>[(tgui_swapped_buttons) ? "Yes" : "No"]</a><br>"
 			dat += "<b>tgui Window Placement:</b> <a href='?_src_=prefs;preference=tgui_lock'>[(tgui_lock) ? "Primary monitor" : "Free (default)"]</a><br>"
 			dat += "<b>Show Runechat Chat Bubbles:</b> <a href='?_src_=prefs;preference=chat_on_map'>[chat_on_map ? "Enabled" : "Disabled"]</a><br>"
 			dat += "<b>Runechat message char limit:</b> <a href='?_src_=prefs;preference=max_chat_length;task=input'>[max_chat_length]</a><br>"
@@ -1347,6 +1362,11 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 
 			HTML += "<tr bgcolor='[job.selection_color]'><td width='60%' align='right'>"
 			var/rank = job.title
+			// TFN EDIT START: alt job titles
+			var/displayed_rank = rank
+			if(length(job.alt_titles) && (rank in alt_titles_preferences))
+				displayed_rank = alt_titles_preferences[rank]
+			// TFN EDIT END
 			lastJob = job
 			if(is_banned_from(user.ckey, rank))
 				HTML += "<font color=red>[rank]</font></td><td><a href='?_src_=prefs;bancheck=[rank]'> BANNED</a></td></tr>"
@@ -1381,10 +1401,16 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 			if((job_preferences[SSjob.overflow_role] == JP_LOW) && (rank != SSjob.overflow_role) && !is_banned_from(user.ckey, SSjob.overflow_role))
 				HTML += "<font color=orange>[rank]</font></td><td></td></tr>"
 				continue
-			if((rank in GLOB.leader_positions) || (rank == "AI"))//Bold head jobs
-				HTML += "<b><span class='dark'>[rank]</span></b>"
+			// TFN EDIT START: alt job titles
+			var/rank_title_line = "[displayed_rank]"
+			if(length(job.alt_titles) && (rank in GLOB.leader_positions))//Bold head jobs
+				rank_title_line = "<b><a href='?_src_=prefs;preference=job;task=alt_title;job_title=[job.title]'>[rank_title_line]</a></b>"
+			else if(length(job.alt_titles))
+				rank_title_line = "<a href='?_src_=prefs;preference=job;task=alt_title;job_title=[job.title]'>[rank_title_line]</a>"
 			else
-				HTML += "<span class='dark'>[rank]</span>"
+				rank_title_line = "<span class='dark'>[rank]</span>"
+			HTML += rank_title_line
+			// TFN EDIT END
 
 			HTML += "</td><td width='40%'>"
 
@@ -1638,6 +1664,23 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(BERANDOMJOB)
 						joblessrole = RETURNTOLOBBY
 				SetChoices(user)
+			// TFN EDIT START: alt job titles
+			if("alt_title")
+				var/job_title = href_list["job_title"]
+				var/titles_list = list(job_title)
+				var/datum/job/J = SSjob.GetJob(job_title)
+				for(var/alternative_titles in J.alt_titles)
+					titles_list += alternative_titles
+				var/chosen_title
+				chosen_title = tgui_input_list(user, "Choose your job's title:", "Job Preference", sortList(titles_list))
+				if(chosen_title)
+					if(chosen_title == job_title)
+						if(alt_titles_preferences[job_title])
+							alt_titles_preferences.Remove(job_title)
+					else
+						alt_titles_preferences[job_title] = chosen_title
+				SetChoices(user)
+			// TFN EDIT END
 			if("setJobLevel")
 				UpdateJobPreference(user, href_list["text"], text2num(href_list["level"]))
 			else
@@ -1748,12 +1791,12 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 			switch(href_list["preference"])
 				if("ghostform")
 					if(unlock_content)
-						var/new_form = input(user, "Thanks for supporting BYOND - Choose your ghostly form:","Thanks for supporting BYOND",null) as null|anything in GLOB.ghost_forms
+						var/new_form = tgui_input_list(user, "Thanks for supporting BYOND - Choose your ghostly form:","Thanks for supporting BYOND",GLOB.ghost_forms)
 						if(new_form)
 							ghost_form = new_form
 				if("ghostorbit")
 					if(unlock_content)
-						var/new_orbit = input(user, "Thanks for supporting BYOND - Choose your ghostly orbit:","Thanks for supporting BYOND", null) as null|anything in GLOB.ghost_orbits
+						var/new_orbit = tgui_input_list(user, "Thanks for supporting BYOND - Choose your ghostly orbit:","Thanks for supporting BYOND",GLOB.ghost_orbits)
 						if(new_orbit)
 							ghost_orbit = new_orbit
 
@@ -1781,7 +1824,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked || (!pref_species.id == "garou"))
 						return
 
-					var/new_name = input(user, "Choose your character's werewolf name:", "Character Preference")  as text|null
+					var/new_name = tgui_input_text(user, "Choose your character's werewolf name:", "Character Preference", max_length = MAX_NAME_LEN)
 					if(new_name)
 						new_name = reject_bad_name(new_name)
 						if(new_name)
@@ -1792,7 +1835,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 
-					var/new_name = input(user, "Choose your character's name:", "Character Preference")  as text|null
+					var/new_name = tgui_input_text(user, "Choose your character's name:", "Character Preference", max_length = MAX_NAME_LEN)
 					if(new_name)
 						new_name = reject_bad_name(new_name)
 						if(new_name)
@@ -1804,7 +1847,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 
-					var/new_age = input(user, "Choose your character's biological age:\n([AGE_MIN]-[AGE_MAX])", "Character Preference") as num|null
+					var/new_age = tgui_input_number(user, "Choose your character's biological age:\n([AGE_MIN]-[AGE_MAX])", "Character Preference", age, AGE_MAX, AGE_MIN)
 					if(new_age)
 						age = max(min( round(text2num(new_age)), AGE_MAX),AGE_MIN)
 						if (age > total_age)
@@ -1815,7 +1858,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 
-					var/new_age = input(user, "Choose your character's actual age:\n([age]-[age+1000])", "Character Preference") as num|null
+					var/new_age = tgui_input_number(user, "Choose your character's actual age:\n([age]-[age+1000])", "Character Preference", total_age, age+1000, age)
 					if(new_age)
 						total_age = max(min(round(text2num(new_age)), age+1000), age)
 						if (total_age < age)
@@ -1823,7 +1866,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						update_preview_icon()
 
 				if("info_choose")
-					var/new_info_known = input(user, "Choose who knows your character:", "Fame")  as null|anything in list(INFO_KNOWN_UNKNOWN,INFO_KNOWN_CLAN_ONLY,INFO_KNOWN_FACTION,INFO_KNOWN_PUBLIC)
+					var/new_info_known = tgui_input_list(user, "Choose who knows your character:", "Fame", list(INFO_KNOWN_UNKNOWN, INFO_KNOWN_CLAN_ONLY, INFO_KNOWN_FACTION, INFO_KNOWN_PUBLIC))
 					if(new_info_known)
 						info_known = new_info_known
 
@@ -1844,14 +1887,14 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					else
 						var/new_hairstyle
 						if(clane.haircuts)
-							new_hairstyle = input(user, "Choose your character's hairstyle:", "Character Preference")  as null|anything in clane.haircuts
+							new_hairstyle = tgui_input_list(user, "Choose your character's hairstyle:", "Character Preference", clane.haircuts)
 						else
 							if(gender == MALE)
-								new_hairstyle = input(user, "Choose your character's hairstyle:", "Character Preference")  as null|anything in GLOB.hairstyles_male_list
+								new_hairstyle = tgui_input_list(user, "Choose your character's hairstyle:", "Character Preference", GLOB.hairstyles_male_list)
 							else if(gender == FEMALE)
-								new_hairstyle = input(user, "Choose your character's hairstyle:", "Character Preference")  as null|anything in GLOB.hairstyles_female_list
+								new_hairstyle = tgui_input_list(user, "Choose your character's hairstyle:", "Character Preference", GLOB.hairstyles_female_list)
 							else
-								new_hairstyle = input(user, "Choose your character's hairstyle:", "Character Preference")  as null|anything in GLOB.hairstyles_list
+								new_hairstyle = tgui_input_list(user, "Choose your character's hairstyle:", "Character Preference", GLOB.hairstyles_list)
 						if(new_hairstyle)
 							hairstyle = new_hairstyle
 
@@ -1904,11 +1947,11 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					else
 						var/new_facial_hairstyle
 						if(gender == MALE)
-							new_facial_hairstyle = input(user, "Choose your character's facial-hairstyle:", "Character Preference")  as null|anything in GLOB.facial_hairstyles_male_list
+							new_facial_hairstyle = tgui_input_list(user, "Choose your character's facial-hairstyle:", "Character Preference", GLOB.facial_hairstyles_male_list)
 						else if(gender == FEMALE)
-							new_facial_hairstyle = input(user, "Choose your character's facial-hairstyle:", "Character Preference")  as null|anything in GLOB.facial_hairstyles_female_list
+							new_facial_hairstyle = tgui_input_list(user, "Choose your character's facial-hairstyle:", "Character Preference", GLOB.facial_hairstyles_female_list)
 						else
-							new_facial_hairstyle = input(user, "Choose your character's facial-hairstyle:", "Character Preference")  as null|anything in GLOB.facial_hairstyles_list
+							new_facial_hairstyle = tgui_input_list(user, "Choose your character's facial-hairstyle:", "Character Preference", GLOB.facial_hairstyles_list)
 						if(new_facial_hairstyle)
 							facial_hairstyle = new_facial_hairstyle
 
@@ -1943,11 +1986,11 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 				if("underwear")
 					var/new_underwear
 					if(gender == MALE)
-						new_underwear = input(user, "Choose your character's underwear:", "Character Preference")  as null|anything in GLOB.underwear_m
+						new_underwear = tgui_input_list(user, "Choose your character's underwear:", "Character Preference", GLOB.underwear_m)
 					else if(gender == FEMALE)
-						new_underwear = input(user, "Choose your character's underwear:", "Character Preference")  as null|anything in GLOB.underwear_f
+						new_underwear = tgui_input_list(user, "Choose your character's underwear:", "Character Preference", GLOB.underwear_f)
 					else
-						new_underwear = input(user, "Choose your character's underwear:", "Character Preference")  as null|anything in GLOB.underwear_list
+						new_underwear = tgui_input_list(user, "Choose your character's underwear:", "Character Preference", GLOB.underwear_list)
 					if(new_underwear)
 						underwear = new_underwear
 
@@ -1959,17 +2002,18 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 				if("undershirt")
 					var/new_undershirt
 					if(gender == MALE)
-						new_undershirt = input(user, "Choose your character's undershirt:", "Character Preference") as null|anything in GLOB.undershirt_m
+						new_undershirt = tgui_input_list(user, "Choose your character's undershirt:", "Character Preference", GLOB.undershirt_m)
 					else if(gender == FEMALE)
-						new_undershirt = input(user, "Choose your character's undershirt:", "Character Preference") as null|anything in GLOB.undershirt_f
+						new_undershirt = tgui_input_list(user, "Choose your character's undershirt:", "Character Preference", GLOB.undershirt_f)
 					else
-						new_undershirt = input(user, "Choose your character's undershirt:", "Character Preference") as null|anything in GLOB.undershirt_list
+						new_undershirt = tgui_input_list(user, "Choose your character's undershirt:", "Character Preference", GLOB.undershirt_list)
+
 					if(new_undershirt)
 						undershirt = new_undershirt
 
 				if("socks")
 					var/new_socks
-					new_socks = input(user, "Choose your character's socks:", "Character Preference") as null|anything in GLOB.socks_list
+					new_socks = tgui_input_list(user, "Choose your character's socks:", "Character Preference", GLOB.socks_list)
 					if(new_socks)
 						socks = new_socks
 
@@ -1985,13 +2029,13 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if((true_experience < 10) || !(pref_species.id == "kindred") || !(clane.name == "Caitiff"))
 						return
 
-					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
+					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
 					for (var/discipline_type in possible_new_disciplines)
 						var/datum/discipline/discipline = new discipline_type
-						if (discipline.clane_restricted)
+						if (discipline.clan_restricted)
 							possible_new_disciplines -= discipline_type
 						qdel(discipline)
-					var/new_discipline = input(user, "Select your new Discipline", "Discipline Selection") as null|anything in possible_new_disciplines
+					var/new_discipline = tgui_input_list(user, "Select your new Discipline", "Discipline Selection", sortList(possible_new_disciplines))
 					if(new_discipline)
 						discipline_types += new_discipline
 						discipline_levels += 1
@@ -2001,8 +2045,8 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if((true_experience < 10) || !(pref_species.id == "ghoul"))
 						return
 
-					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types
-					var/new_discipline = input(user, "Select your new Discipline", "Discipline Selection") as null|anything in possible_new_disciplines
+					var/list/possible_new_disciplines = subtypesof(/datum/discipline) - discipline_types - /datum/discipline/bloodheal
+					var/new_discipline = tgui_input_list(user, "Select your new Discipline", "Discipline Selection", sortList(possible_new_disciplines))
 					if(new_discipline)
 						discipline_types += new_discipline
 						discipline_levels += 1
@@ -2037,7 +2081,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 							if(initial(C.discipline_type) == "Chi")
 								if(has_chi_one)
 									possible_new_disciplines -= i
-					var/new_discipline = input(user, "Select your new Discipline", "Discipline Selection") as null|anything in possible_new_disciplines
+					var/new_discipline = tgui_input_list(user, "Select your new Discipline", "Discipline Selection", sortList(possible_new_disciplines))
 					if(new_discipline)
 						discipline_types += new_discipline
 						discipline_levels += 1
@@ -2048,7 +2092,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						return
 
 					var/list/colors = list("black", "gray", "red", "white", "ginger", "brown")
-					var/result = input(user, "Select fur color:", "Appearance Selection") as null|anything in colors
+					var/result = tgui_input_list(user, "Select fur color:", "Appearance Selection", sortList(colors))
 					if(result)
 						werewolf_color = result
 
@@ -2102,7 +2146,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						var/datum/auspice/V = new a
 						auspice_choices[V.name] += GLOB.auspices_list[i]
 						qdel(V)
-					var/result = input(user, "Select an Auspice", "Auspice Selection") as null|anything in auspice_choices
+					var/result = tgui_input_list(user, "Select an Auspice", "Auspice Selection", auspice_choices)
 					if(result)
 						var/newtype = GLOB.auspices_list[result]
 						var/datum/auspice/Auspic = new newtype()
@@ -2115,7 +2159,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(!length(clane.accessories))
 						clane_accessory = null
 						return
-					var/result = input(user, "Select a mark", "Marks") as null|anything in clane.accessories
+					var/result = tgui_input_list(user, "Select a mark", "Marks", clane.accessories)
 					if(result)
 						clane_accessory = result
 
@@ -2123,7 +2167,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked || !(pref_species.id == "kindred"))
 						return
 
-					if (alert("Are you sure you want to change your Clan? This will reset your Disciplines.", "Confirmation", "Yes", "No") != "Yes")
+					if (tgui_alert(user, "Are you sure you want to change your Clan? This will reset your Disciplines.", "Confirmation", list("Yes", "No")) != "Yes")
 						return
 
 					var/list/available_clans = list()
@@ -2136,7 +2180,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						else
 							available_clans[V.name] += GLOB.clanes_list[i]
 						qdel(V)
-					var/result = input(user, "Select a clane", "Clane Selection") as null|anything in available_clans
+					var/result = tgui_input_list(user, "Select a clane", "Clane Selection", sortList(available_clans))
 					if(result)
 						var/newtype = GLOB.clanes_list[result]
 						clane = new newtype()
@@ -2147,13 +2191,13 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 							for (var/i = clane.clane_disciplines.len; i < 3; i++)
 								if (slotlocked)
 									break
-								var/list/possible_new_disciplines = subtypesof(/datum/discipline) - clane.clane_disciplines
+								var/list/possible_new_disciplines = subtypesof(/datum/discipline) - clane.clane_disciplines - /datum/discipline/bloodheal
 								for (var/discipline_type in possible_new_disciplines)
 									var/datum/discipline/discipline = new discipline_type
-									if (discipline.clane_restricted)
+									if (discipline.clan_restricted)
 										possible_new_disciplines -= discipline_type
 									qdel(discipline)
-								var/new_discipline = input(user, "Select a Discipline", "Discipline Selection") as null|anything in possible_new_disciplines
+								var/new_discipline = tgui_input_list(user, "Select a Discipline", "Discipline Selection", sortList(possible_new_disciplines))
 								if (new_discipline)
 									clane.clane_disciplines += new_discipline
 						for (var/i in 1 to clane.clane_disciplines.len)
@@ -2210,7 +2254,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked || !(pref_species.id == "garou"))
 						return
 
-					var/new_tribe = input("Choose your Tribe.", "Tribe") as null|anything in list("Wendigo", "Glasswalkers", "Black Spiral Dancers")
+					var/new_tribe = tgui_input_list(user, "Choose your Tribe:", "Tribe", sortList(list("Wendigo", "Glasswalkers", "Black Spiral Dancers")))
 					if (new_tribe)
 						tribe = new_tribe
 
@@ -2218,7 +2262,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked || !(pref_species.id == "garou"))
 						return
 
-					var/new_breed = input("Choose your Breed.", "Breed") as null|anything in list("Homid", "Metis", "Lupus")
+					var/new_breed = tgui_input_list(user, "Choose your Breed:", "Breed", sortList(list("Homid", "Metis", "Lupus")))
 					if (new_breed)
 						breed = new_breed
 
@@ -2226,15 +2270,16 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 
-					if (alert("Are you sure you want to change Archetype? This will reset your attributes.", "Confirmation", "Yes", "No") != "Yes")
+					if (tgui_alert(user, "Are you sure you want to change Archetype? This will reset your attributes.", "Confirmation", list("Yes", "No")) != "Yes")
 						return
 
 					var/list/archetypes = list()
 					for(var/i in subtypesof(/datum/archetype))
-						archetypes += i
-					var/result = input(user, "Select an archetype", "Attributes Selection") as null|anything in archetypes
+						var/datum/archetype/the_archetype = i
+						archetypes[initial(the_archetype.name)] = i
+					var/result = tgui_input_list(user, "Select an archetype", "Attributes Selection", sortList(archetypes))
 					if(result)
-						archetype = result
+						archetype = archetypes[result]
 						var/datum/archetype/archetip = new archetype()
 						physique = archetip.start_physique
 						dexterity = archetip.start_dexterity
@@ -2292,10 +2337,10 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					enlightenment = !enlightenment
 
 				if("dharmarise")
-					if ((true_experience < 20) || (dharma_level >= 6) || !(pref_species.id == "kuei-jin"))
+					if ((true_experience < min((dharma_level * 5), 20)) || (dharma_level >= 6) || !(pref_species.id == "kuei-jin"))
 						return
 
-					true_experience -= 20
+					true_experience -= min((dharma_level * 5), 20)
 					dharma_level = clamp(dharma_level + 1, 1, 6)
 
 					if (dharma_level >= 6)
@@ -2315,13 +2360,13 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 				if("dharmatype")
 					if(slotlocked)
 						return
-					if (alert("Are you sure you want to change Dharma? This will reset path-specific stats.", "Confirmation", "Yes", "No") != "Yes")
+					if (tgui_alert(user, "Are you sure you want to change Dharma? This will reset path-specific stats.", "Confirmation", list("Yes", "No")) != "Yes")
 						return
 					var/list/dharmas = list()
 					for(var/i in subtypesof(/datum/dharma))
 						var/datum/dharma/dharma = i
 						dharmas += initial(dharma.name)
-					var/result = input(user, "Select Dharma", "Dharma") as null|anything in dharmas
+					var/result = tgui_input_list(user, "Select Dharma", "Dharma", sortList(dharmas))
 					if(result)
 						for(var/i in subtypesof(/datum/dharma))
 							var/datum/dharma/dharma = i
@@ -2337,13 +2382,13 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 					var/list/pos = list("Rebel", "Legalist", "Demon", "Monkey", "Fool")
-					var/result = input(user, "Select P'o", "P'o") as null|anything in pos
+					var/result = tgui_input_list(user, "Select P'o", "P'o", sortList(pos))
 					if(result)
 						po_type = result
 
 				if("chibalance")
 					var/max_limit = max(10, dharma_level * 2)
-					var/sett = input(user, "Enter the maximum of Yin your character has:", "Yin/Yang") as num|null
+					var/sett = tgui_input_number(user, "Enter the maximum of Yin your character has:", "Yin/Yang")
 					if(sett)
 						sett = max(1, min(sett, max_limit-1))
 						yin = sett
@@ -2351,7 +2396,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 
 				if("demonbalance")
 					var/max_limit = max(10, dharma_level * 2)
-					var/sett = input(user, "Enter the maximum of Hun your character has:", "Hun/P'o") as num|null
+					var/sett = tgui_input_number(user, "Enter the maximum of Hun your character has:", "Hun/P'o")
 					if(sett)
 						sett = max(1, min(sett, max_limit-1))
 						hun = sett
@@ -2362,26 +2407,60 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						return
 
 					true_experience -= 20
-					generation_bonus = min(generation_bonus + 1, max(0, generation-7))
+					generation_bonus = min(generation_bonus + 1, max(0, generation-MAX_PUBLIC_GENERATION))
 
 				if("friend_text")
-					var/new_text = input(user, "What a Friend knows about me:", "Character Preference") as text|null
+					var/new_text = tgui_input_text(user, "What a Friend knows about me:", "Character Preference", max_length = 512)
 					if(new_text)
-						friend_text = trim(copytext_char(sanitize(new_text), 1, 512))
+						friend_text = new_text
 				if("enemy_text")
-					var/new_text = input(user, "What an Enemy knows about me:", "Character Preference") as text|null
+					var/new_text = tgui_input_text(user, "What an Enemy knows about me:", "Character Preference", max_length = 512)
 					if(new_text)
-						enemy_text = trim(copytext_char(sanitize(new_text), 1, 512))
+						enemy_text = new_text
 				if("lover_text")
-					var/new_text = input(user, "What a Lover knows about me:", "Character Preference") as text|null
+					var/new_text = tgui_input_text(user, "What a Lover knows about me:", "Character Preference", max_length = 512)
 					if(new_text)
-						lover_text = trim(copytext_char(sanitize(new_text), 1, 512))
-
+						lover_text = new_text
+				// TODO: Completely revamp flavor text into a more expansive system - TFN
+				// TFN EDIT ADDITION START: character headshots & flavortext
 				if("flavor_text")
-					var/new_flavor = input(user, "Choose your character's flavor text:", "Character Preference") as text|null
-					if(new_flavor)
-						flavor_text = trim(copytext_char(sanitize(new_flavor), 1, 512))
+					var/new_flavor = tgui_input_text(user, "Choose your character's flavor text:", "Character Preference", flavor_text, MAX_MESSAGE_LEN, TRUE, FALSE)
+					if(!length(new_flavor))
+						return
+					flavor_text = new_flavor
 
+				if("view_flavortext")
+					var/datum/browser/popup = new(user, "[real_name]'s Description", real_name, 500, 200)
+					popup.set_content(text("<HTML><HEAD><TITLE>[]</TITLE></HEAD><BODY><TT>[]</TT></BODY></HTML>", "[real_name]", replacetext(flavor_text, "\n", "<BR>")))
+					popup.open(FALSE)
+					return
+
+				if("view_headshot")
+					var/list/dat = list("<table width='100%' height='100%'><td align='center' valign='middle'><img src='[headshot_link]' width='250px' height='250px'></td></table>")
+					var/datum/browser/popup = new(user, "[real_name]'s Headshot", "<div align='center'>Headshot</div>", 310, 330)
+					popup.set_content(dat.Join())
+					popup.open(FALSE)
+					return
+
+				if("headshot")
+					to_chat(user, span_notice("Please use a relatively SFW image of the head and shoulder area to maintain immersion level. Lastly, ["<b>do not use a real life photo or use any image that is less than serious.</b>"]"))
+					to_chat(user, span_notice("If the photo doesn't show up properly in-game, ensure that it's a direct image link that opens properly in a browser."))
+					to_chat(user, span_notice("Resolution: 250x250 pixels."))
+					var/new_headshot_link = tgui_input_text(user, "Input the headshot link (https, hosts: gyazo, discord, lensdump, imgbox, catbox):", "Headshot", headshot_link, encode = FALSE)
+					if(isnull(new_headshot_link))
+						return
+					if(!length(new_headshot_link))
+						headshot_link = null
+						ShowChoices(user)
+						return
+					if(!valid_headshot_link(user, new_headshot_link))
+						headshot_link = null
+						ShowChoices(user)
+						return
+					headshot_link = new_headshot_link
+					to_chat(user, span_notice("Successfully updated headshot picture!"))
+					log_game("[user] has set their Headshot image to '[headshot_link]'.")
+				// TFN EDIT ADDITION END
 				if("change_appearance")
 					if((true_experience < 3) || !slotlocked)
 						return
@@ -2397,7 +2476,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					slotlocked = 0
 					torpor_count = 0
 					masquerade = initial(masquerade)
-					generation = bonus
+					generation = clamp(bonus, LOWEST_GENERATION_LIMIT, HIGHEST_GENERATION_LIMIT)
 					generation_bonus = 0
 					save_character()
 
@@ -2405,40 +2484,41 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 
-					if (alert("Are you sure you want to change species? This will reset species-specific stats.", "Confirmation", "Yes", "No") != "Yes")
+					if (tgui_alert(user, "Are you sure you want to change species? This will reset species-specific stats.", "Confirmation", list("Yes", "No")) != "Yes")
 						return
 
 					var/list/choose_species = list()
-					for (var/key in GLOB.selectable_races)
+					for (var/key in get_selectable_species())
 						var/newtype = GLOB.species_list[key]
 						var/datum/species/selecting_species = new newtype
 						if (!selecting_species.selectable)
 							qdel(selecting_species)
 							continue
 						if (selecting_species.whitelisted)
-							if (!SSwhitelists.is_whitelisted(parent.ckey, key))
+							if (parent && !SSwhitelists.is_whitelisted(parent.ckey, key))
 								qdel(selecting_species)
 								continue
 						choose_species += key
 						qdel(selecting_species)
 
-					var/result = input(user, "Select a species", "Species Selection") as null|anything in choose_species
+					var/result = tgui_input_list(user, "Select a species", "Species Selection", sortList(choose_species))
 					if(result)
-						all_quirks = list()
+						all_quirks.Cut()
 						SetQuirks(user)
 						var/newtype = GLOB.species_list[result]
 						pref_species = new newtype()
-						if(pref_species.id == "ghoul" || pref_species.id == "human" || pref_species.id == "kuei-jin")
-							discipline_types = list()
-							discipline_levels = list()
-						if(pref_species.id == "kindred")
-							qdel(clane)
-							clane = new /datum/vampireclane/brujah()
-							discipline_types = list()
-							discipline_levels = list()
-							for (var/i in 1 to clane.clane_disciplines.len)
-								discipline_types += clane.clane_disciplines[i]
-								discipline_levels += 1
+						switch(pref_species.id)
+							if("ghoul","human","kuei-jin")
+								discipline_types.Cut()
+								discipline_levels.Cut()
+							if("kindred")
+								qdel(clane)
+								clane = new /datum/vampireclane/brujah()
+								discipline_types.Cut()
+								discipline_levels.Cut()
+								for (var/i in 1 to clane.clane_disciplines.len)
+									discipline_types += clane.clane_disciplines[i]
+									discipline_levels += 1
 						//Now that we changed our species, we must verify that the mutant colour is still allowed.
 						var/temp_hsv = RGBtoHSV(features["mcolor"])
 						if(features["mcolor"] == "#000" || (!(MUTCOLORS_PARTSONLY in pref_species.species_traits) && ReadHSV(temp_hsv)[3] < ReadHSV("#7F7F7F")[3]))
@@ -2548,7 +2628,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 
-					var/new_s_tone = input(user, "Choose your character's skin-tone:", "Character Preference")  as null|anything in GLOB.skin_tones
+					var/new_s_tone = tgui_input_list(user, "Choose your character's skin-tone:", "Character Preference", GLOB.skin_tones)
 					if(new_s_tone)
 						skin_tone = new_s_tone
 
@@ -2563,7 +2643,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 						asaycolor = sanitize_ooccolor(new_asaycolor)
 
 				if("bag")
-					var/new_backpack = input(user, "Choose your character's style of bag:", "Character Preference")  as null|anything in GLOB.backpacklist
+					var/new_backpack = tgui_input_list(user, "Choose your character's style of bag:", "Character Preference", GLOB.backpacklist)
 					if(new_backpack)
 						backpack = new_backpack
 
@@ -2614,12 +2694,13 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					var/desiredfps = input(user, "Choose your desired fps.\n-1 means recommended value (currently:[RECOMMENDED_FPS])\n0 means world fps (currently:[world.fps])", "Character Preference", clientfps)  as null|num
 					if (!isnull(desiredfps))
 						clientfps = sanitize_integer(desiredfps, -1, 1000, clientfps)
-						parent.fps = (clientfps < 0) ? RECOMMENDED_FPS : clientfps
+						if(parent)
+							parent.fps = (clientfps < 0) ? RECOMMENDED_FPS : clientfps
 				if("ui")
 					var/pickedui = input(user, "Choose your UI style.", "Character Preference", UI_style)  as null|anything in sortList(GLOB.available_ui_styles)
 					if(pickedui)
 						UI_style = pickedui
-						if (parent && parent.mob && parent.mob.hud_used)
+						if (parent?.mob.hud_used)
 							parent.mob.hud_used.update_ui_style(ui_style2icon(UI_style))
 				if("pda_style")
 					var/pickedPDAStyle = input(user, "Choose your PDA style.", "Character Preference", pda_style)  as null|anything in GLOB.pda_styles
@@ -2649,8 +2730,8 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					if(slotlocked)
 						return
 
-					var/list/friendlyGenders = list("Male" = "male", "Female" = "female")
-					var/pickedGender = input(user, "Choose your gender.", "Character Preference", gender) as null|anything in friendlyGenders
+					var/list/friendlyGenders = list("Masculine (He/Him)" = "male", "Feminine (She/Her)" = "female", "Other (They/Them)" = "plural")
+					var/pickedGender = tgui_input_list(user, "Choose your gender.", "Character Preference", friendlyGenders, gender)
 					if(pickedGender && friendlyGenders[pickedGender] != gender)
 						gender = friendlyGenders[pickedGender]
 						underwear = random_underwear(gender)
@@ -2763,6 +2844,12 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					buttons_locked = !buttons_locked
 				if("tgui_fancy")
 					tgui_fancy = !tgui_fancy
+				if("tgui_input_mode")
+					tgui_input_mode = !tgui_input_mode
+				if("tgui_large_buttons")
+					tgui_large_buttons = !tgui_large_buttons
+				if("tgui_swapped_buttons")
+					tgui_swapped_buttons = !tgui_swapped_buttons
 				if("tgui_lock")
 					tgui_lock = !tgui_lock
 				if("winflash")
@@ -2896,17 +2983,17 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 
 				if("parallaxup")
 					parallax = WRAP(parallax + 1, PARALLAX_INSANE, PARALLAX_DISABLE + 1)
-					if (parent && parent.mob && parent.mob.hud_used)
+					if (parent?.mob.hud_used)
 						parent.mob.hud_used.update_parallax_pref(parent.mob)
 
 				if("parallaxdown")
 					parallax = WRAP(parallax - 1, PARALLAX_INSANE, PARALLAX_DISABLE + 1)
-					if (parent && parent.mob && parent.mob.hud_used)
+					if (parent?.mob.hud_used)
 						parent.mob.hud_used.update_parallax_pref(parent.mob)
 
 				if("ambientocclusion")
 					ambientocclusion = !ambientocclusion
-					if(parent?.screen && parent.screen.len)
+					if(length(parent?.screen))
 						var/atom/movable/screen/plane_master/game_world/PM = locate(/atom/movable/screen/plane_master/game_world) in parent.screen
 						PM.backdrop(parent.mob)
 
@@ -2947,7 +3034,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					user.client.view_size.setZoomMode()
 
 				if("save")
-					if(alert("Are you finished with your setup?",,"Yes","No")=="Yes")
+					if(tgui_alert(user, "Are you finished with your setup?", "Confirmation", list("Yes", "No")) == "Yes")
 						slotlocked = 1
 						save_preferences()
 						save_character()
@@ -2957,7 +3044,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 					load_character()
 
 				if("reset_all")
-					if (alert("Are you sure you want to reset your character?", "Confirmation", "Yes", "No") != "Yes")
+					if (tgui_alert(user, "Are you sure you want to reset your character?", "Confirmation", list("Yes", "No")) != "Yes")
 						return
 					reset_character()
 
@@ -3002,7 +3089,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 		slot_randomized = TRUE
 		real_name = pref_species.random_name(gender)
 
-	if(randomise[RANDOM_HARDCORE] && parent.mob.mind && !character_setup)
+	if(randomise[RANDOM_HARDCORE] && parent?.mob.mind && !character_setup)
 		if(can_be_random_hardcore())
 			hardcore_random_setup(character, antagonist, is_latejoiner)
 
@@ -3019,7 +3106,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 	character.true_real_name = real_name
 	character.name = character.real_name
 	character.diablerist = diablerist
-
+	character.headshot_link = headshot_link // TFN EDIT
 	character.physique = physique
 	character.dexterity = dexterity
 	character.social = social
@@ -3067,7 +3154,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 
 	if(pref_species.name == "Werewolf")
 		character.maxHealth = round((initial(character.maxHealth)+(initial(character.maxHealth)/4)*(character.physique + character.additional_physique)))
-		character.health = round((initial(character.maxHealth)+(initial(character.maxHealth)/4)*(character.physique + character.additional_physique )))
+		character.health = character.maxHealth
 		switch(tribe)
 			if("Wendigo")
 				character.yin_chi = 1
@@ -3084,13 +3171,12 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 				character.max_yin_chi = 1 + auspice_level * 2
 				character.yang_chi = 5
 				character.max_yang_chi = 5
-	else
-		var/dharma_bonus = 0
-		if(pref_species.name == "Kuei-Jin")
-			dharma_bonus = dharma_level
-		character.maxHealth = round((initial(character.maxHealth)-initial(character.maxHealth)/4)+(initial(character.maxHealth)/4)*((character.physique+character.additional_physique )+13-generation+dharma_bonus))
+	if(pref_species.name == "Kuei-Jin")
+		character.maxHealth = round((initial(character.maxHealth)+(initial(character.maxHealth)/4)*(character.physique + character.additional_physique)))
 		character.health = character.maxHealth
 	if(pref_species.name == "Vampire")
+		character.maxHealth = round((initial(character.maxHealth)+(initial(character.maxHealth)/4)*(character.physique + character.additional_physique)))
+		character.health = character.maxHealth
 		character.humanity = humanity
 	character.masquerade = masquerade
 	if(!character_setup)
@@ -3231,9 +3317,9 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 		parent << browse(null, "window=preferences_browser")
 
 /datum/preferences/proc/can_be_random_hardcore()
-	if(parent.mob.mind.assigned_role in GLOB.command_positions) //No command staff
+	if(parent && (parent.mob.mind?.assigned_role in GLOB.command_positions)) //No command staff
 		return FALSE
-	for(var/A in parent.mob.mind.antag_datums)
+	for(var/A in parent?.mob.mind?.antag_datums)
 		var/datum/antagonist/antag
 		if(antag.get_team()) //No team antags
 			return FALSE
@@ -3262,7 +3348,7 @@ GLOBAL_LIST_EMPTY(preferences_datums)
 	if(!namedata)
 		return
 
-	var/raw_name = input(user, "Choose your character's [namedata["qdesc"]]:","Character Preference") as text|null
+	var/raw_name = tgui_input_text(user, "Choose your character's [namedata["qdesc"]]:","Character Preference", max_length = MAX_NAME_LEN)
 	if(!raw_name)
 		if(namedata["allow_null"])
 			custom_names[name_id] = get_default_name(name_id)

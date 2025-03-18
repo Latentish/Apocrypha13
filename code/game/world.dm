@@ -285,14 +285,12 @@ GLOBAL_VAR(restart_counter)
 //		features += "closed"
 
 	var/s = ""
-	var/hostedby
 	if(config)
 		var/server_name = CONFIG_GET(string/servername)
 		if (server_name)
-			s += "<a href=\"https://discord.gg/invite/WU92NG2Me8\"><b>[server_name] &#8212; Werewolf-Friendly</b></a>"
-		hostedby = CONFIG_GET(string/hostedby)
-	s += "<br>Persistent roleplaying server in the World of Darkness."
-	s += "<br>Active development, pretty art, and a gothic atmosphere."
+			s += "<a href=\"https://discord.gg/invite/hQHAK67Drd\"><b>[server_name] \[18+\] &#8212; Apply on Discord!</b></a>"
+
+	s += "<br>Persistent 18+ immersive roleplay set in the World of Darkness, running modified WoD13 code. <br>Hosted by <b>Alanii, the Dark God.</b>"
 
 	var/players = GLOB.clients.len
 
@@ -311,8 +309,8 @@ GLOBAL_VAR(restart_counter)
 
 	game_state = (CONFIG_GET(number/extreme_popcap) && players >= CONFIG_GET(number/extreme_popcap)) //tells the hub if we are full
 
-	if (!host && hostedby)
-		features += "hosted by <b>[hostedby]</b>"
+	//if (!host && hostedby)
+	//	s += "<br>Hosted by <b>[hostedby]</b>"
 
 	if (features.len)
 		s += ": [jointext(features, ", ")]"
